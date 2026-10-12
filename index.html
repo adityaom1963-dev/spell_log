@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#11271B">
+<meta name="color-scheme" content="light dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Spell Log">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+.prompt{width:100%;min-height:170px;border:1px solid var(--line);border-radius:6px;background:var(--field);color:var(--ink);padding:10px;font:13px/1.4 var(--f-body);resize:vertical}
+</style>
+<title>Spell Log</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column, a scoreboard strip on top, three tabs (Log, Progress, Recap) pinned at the bottom. */
+:root{
+  --bg:#EDF1EA; --card:#F7F9F5; --field:#FFFFFF; --ink:#12281B; --muted:#586A5E; --line:#CFD8CC;
+  --turf:#256B45; --on-turf:#F4F8F2; --accent:#B3202A; --on-accent:#FFF6F4;
+  --board:#11271B; --board-ink:#EEF3EA; --board-dim:#9FB3A5; --board-good:#7FD6A0; --board-warn:#F0B866;
+  --good:#2F7D50; --warn:#A5610B;
+  --f-display:'Barlow Condensed','Arial Narrow',sans-serif;
+  --f-body:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1710; --card:#13231A; --field:#0F1D15; --ink:#E6EEE6; --muted:#8FA396; --line:#25392C;
+    --turf:#4DA373; --on-turf:#0A1710; --accent:#E5575E; --on-accent:#1A0709;
+    --board:#070F0A; --board-ink:#EAF1E8; --board-dim:#7F9686; --board-good:#7FD6A0; --board-warn:#F0B866;
+    --good:#5CBF86; --warn:#E3A650; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C1710; --card:#13231A; --field:#0F1D15; --ink:#E6EEE6; --muted:#8FA396; --line:#25392C;
+  --turf:#4DA373; --on-turf:#0A1710; --accent:#E5575E; --on-accent:#1A0709;
+  --board:#070F0A; --board-ink:#EAF1E8; --board-dim:#7F9686; --board-good:#7FD6A0; --board-warn:#F0B866;
+  --good:#5CBF86; --warn:#E3A650; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45;padding-inline:16px;padding-block:14px 96px}
+.wrap{max-width:560px;margin-inline:auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{margin:0;font-family:var(--f-display);text-wrap:balance}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand h1{font-size:28px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;line-height:1}
+.today{font-family:var(--f-display);font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+.board{background:var(--board);color:var(--board-ink);border-radius:6px;display:grid;grid-template-columns:repeat(3,1fr)}
+.cell{padding:12px 12px 14px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cell+.cell{border-left:1px solid color-mix(in srgb,var(--board-ink) 18%,transparent)}
+.cell .k{font-family:var(--f-display);font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--board-dim)}
+.cell .v{font-family:var(--f-display);font-weight:700;font-size:46px;line-height:1;font-variant-numeric:tabular-nums}
+.cell .v small{font-size:16px;font-weight:600;color:var(--board-dim);margin-left:3px;letter-spacing:.06em}
+.cell .s{font-size:12.5px;color:var(--board-dim);line-height:1.3}
+.status{display:inline-block;font-family:var(--f-display);font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;border:1px solid currentColor;border-radius:999px;padding:0 8px;width:fit-content;margin-top:2px}
+.status.steady{color:var(--board-good)} .status.spike{color:var(--board-warn)} .status.light{color:var(--board-dim)}
+
+.sample-note{font-size:13.5px;color:var(--muted);border:1px dashed var(--line);border-radius:6px;padding:8px 12px}
+
+.panel{display:flex;flex-direction:column;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.card h2{font-size:22px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.lbl{font-family:var(--f-display);font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;display:block;margin-bottom:6px}
+.field{display:flex;flex-direction:column}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row2>*{min-width:0}
+
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.seg label,.effort label{position:relative;display:block}
+.seg input,.effort input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.seg span{display:flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--line);border-radius:6px;background:var(--field);font-weight:500;font-size:15px}
+.seg input:checked+span{background:var(--turf);border-color:var(--turf);color:var(--on-turf);font-weight:600}
+.seg input:focus-visible+span,.effort input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+
+.stepper{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;gap:6px;align-items:stretch}
+.stepper button{min-width:48px;min-height:48px;border:1px solid var(--line);background:var(--field);border-radius:6px;font-family:var(--f-display);font-weight:600;font-size:18px;letter-spacing:.03em}
+.stepper button:active{background:var(--line)}
+.num,.txt,.date{width:100%;min-height:48px;border:1px solid var(--line);border-radius:6px;background:var(--field);padding:0 12px;color:var(--ink)}
+.num{font-family:var(--f-display);font-weight:700;font-size:30px;text-align:center;font-variant-numeric:tabular-nums}
+.num.sm{font-size:22px;text-align:left}
+.hint{font-size:13.5px;color:var(--muted);margin-top:6px}
+.hint b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+
+.effort{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
+.effort span{display:flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--line);border-radius:5px;background:var(--field);font-family:var(--f-display);font-weight:600;font-size:18px;font-variant-numeric:tabular-nums}
+.effort input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.scale{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-top:4px}
+
+.save{min-height:52px;border:0;border-radius:6px;background:var(--accent);color:var(--on-accent);font-family:var(--f-display);font-weight:700;font-size:20px;letter-spacing:.1em;text-transform:uppercase}
+.save:active{filter:brightness(.92)}
+.err{color:var(--warn);font-size:14px;min-height:0}
+
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:10px 0;border-top:1px solid var(--line)}
+.list li:first-child{border-top:0;padding-top:0}
+.list .d{font-family:var(--f-display);font-size:17px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.list .d em{font-style:normal;color:var(--muted);font-weight:500}
+.list .o{font-family:var(--f-display);font-weight:700;font-size:22px;text-align:right;font-variant-numeric:tabular-nums}
+.list .o small{font-size:13px;color:var(--muted);margin-left:2px}
+.list .n{grid-column:1;font-size:14.5px;color:var(--muted);overflow-wrap:anywhere}
+.list .e{grid-column:2;text-align:right;font-size:13px;color:var(--muted);display:flex;gap:10px;justify-content:flex-end;align-items:center}
+.rm{border:0;background:none;color:var(--muted);text-decoration:underline;font-size:13px;min-height:32px;padding:0 2px}
+.rm[data-armed]{color:var(--warn);font-weight:600}
+
+.chart{width:100%;height:auto;display:block}
+.chart text{font-family:var(--f-body);font-size:10px;fill:var(--muted)}
+.chart .val{fill:var(--ink);font-family:var(--f-display);font-weight:600;font-size:12px}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .bar{fill:var(--turf)} .chart .bar.now{fill:var(--accent)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--turf);margin-right:6px}
+.legend i.now{background:var(--accent)}
+
+.big{font-family:var(--f-display);font-weight:700;font-size:40px;line-height:1;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;font-family:var(--f-display);font-size:14px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;border:1px solid currentColor;border-radius:999px;padding:1px 10px;vertical-align:middle}
+.pill.steady{color:var(--good)} .pill.spike{color:var(--warn)} .pill.light{color:var(--muted)}
+.load p{margin:8px 0 0;color:var(--muted);font-size:15px}
+.load small{display:block;margin-top:6px;color:var(--muted);font-size:12.5px}
+
+.kv{display:grid;grid-template-columns:1fr auto;gap:0}
+.kv>div{padding:10px 0;border-top:1px solid var(--line);min-width:0}
+.kv>div:nth-child(-n+2){border-top:0;padding-top:0}
+.kv .k{color:var(--muted);font-size:15px}
+.kv .v{font-family:var(--f-display);font-weight:700;font-size:22px;text-align:right;font-variant-numeric:tabular-nums}
+.kv .v small{font-family:var(--f-body);font-weight:400;font-size:13px;color:var(--muted);display:block;line-height:1.2}
+
+.tag{font-family:var(--f-display);font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--on-accent);background:var(--accent);border-radius:3px;padding:1px 7px;margin-left:8px;vertical-align:middle}
+.ghost{min-height:48px;border:1px solid var(--ink);background:transparent;border-radius:6px;font-family:var(--f-display);font-weight:700;font-size:18px;letter-spacing:.1em;text-transform:uppercase}
+.recap-part{display:flex;flex-direction:column;gap:4px;padding-top:12px;border-top:1px solid var(--line)}
+.recap-part:first-of-type{border-top:0;padding-top:0}
+.recap-part p{margin:0;overflow-wrap:anywhere}
+.recap-part .lbl{margin:0}
+.recap-part.dim p{color:var(--muted)}
+.meta{font-size:13px;color:var(--muted)}
+.plan{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.plan>div{border:1px solid var(--line);border-radius:6px;padding:12px;font-size:14.5px;min-width:0}
+.plan h3{font-size:18px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.plan ul{margin:0;padding-left:18px;color:var(--muted)}
+@media (max-width:420px){.plan{grid-template-columns:1fr}}
+
+nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:0 16px env(safe-area-inset-bottom,0px)}
+nav.tabs div{max-width:560px;margin-inline:auto;display:grid;grid-template-columns:repeat(3,1fr)}
+nav.tabs button{background:none;border:0;border-top:3px solid transparent;min-height:56px;font-family:var(--f-display);font-weight:600;font-size:18px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-top-color:var(--accent)}
+.toast{position:fixed;left:16px;right:16px;bottom:calc(72px + env(safe-area-inset-bottom,0px));max-width:528px;margin-inline:auto;background:var(--ink);color:var(--bg);border-radius:6px;padding:10px 14px;font-weight:500;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="13" fill="var(--accent)"/><path d="M5 9c6 3 6 9 0 12M25 9c-6 3-6 9 0 12" fill="none" stroke="var(--on-accent)" stroke-width="1.4" stroke-dasharray="2 2.4" stroke-linecap="round"/><path d="M15 2.5v25" stroke="var(--on-accent)" stroke-width="1.4" stroke-dasharray="2 2.4" opacity=".0"/></svg>
+      <h1>Spell Log</h1>
+    </div>
+    <div class="today" id="today"></div>
+  </header>
+
+  <section class="board" id="board" aria-label="This week at a glance"></section>
+  <div class="sample-note" id="sampleNote" hidden>Sample sessions are showing so you can see how this works. Log your first session and they disappear.</div>
+
+  <main>
+  <div class="panel" id="p-log" role="tabpanel">
+    <form class="card" id="form" autocomplete="off" novalidate>
+      <h2>Log a spell</h2>
+      <div class="field">
+        <span class="lbl" id="l-type">Session</span>
+        <div class="seg" role="radiogroup" aria-labelledby="l-type">
+          <label><input type="radio" name="type" value="Nets" checked><span>Nets</span></label>
+          <label><input type="radio" name="type" value="Match"><span>Match</span></label>
+          <label><input type="radio" name="type" value="Practice"><span>Practice</span></label>
+          <label><input type="radio" name="type" value="Drills"><span>Drills</span></label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="lbl" for="balls">Balls bowled</label>
+        <div class="stepper">
+          <button type="button" data-step="-6" aria-label="Minus one over">−6</button>
+          <button type="button" data-step="-1" aria-label="Minus one ball">−1</button>
+          <input class="num" id="balls" type="number" inputmode="numeric" min="0" max="600" step="1" value="36">
+          <button type="button" data-step="1" aria-label="Plus one ball">+1</button>
+          <button type="button" data-step="6" aria-label="Plus one over">+6</button>
+        </div>
+        <div class="hint" id="ovHint"></div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label class="lbl" for="mins">Minutes</label>
+          <input class="num sm" id="mins" type="number" inputmode="numeric" min="0" max="480" value="60">
+        </div>
+        <div class="field">
+          <label class="lbl" for="date">Day</label>
+          <input class="date" id="date" type="date">
+        </div>
+      </div>
+      <div class="field">
+        <span class="lbl" id="l-eff">Effort, 1 to 10</span>
+        <div class="effort" id="effort" role="radiogroup" aria-labelledby="l-eff"></div>
+        <div class="scale"><span>Easy</span><span>All out</span></div>
+      </div>
+      <div class="field">
+        <label class="lbl" for="note">One line</label>
+        <input class="txt" id="note" type="text" maxlength="120" placeholder="What worked, what didn't">
+      </div>
+      <div class="err" id="err" role="alert"></div>
+      <button class="save" type="submit">Log session</button>
+    </form>
+
+    <section class="card" aria-labelledby="h-recent">
+      <h2 id="h-recent">Recent sessions</h2>
+      <ol class="list" id="recent"></ol>
+    </section>
+  </div>
+
+  <div class="panel" id="p-prog" role="tabpanel" hidden>
+    <section class="card" aria-labelledby="h-weekly">
+      <h2 id="h-weekly">Overs per week</h2>
+      <div id="chart"></div>
+      <div class="legend"><span><i></i>Past weeks</span><span><i class="now"></i>This week so far</span></div>
+    </section>
+    <section class="card load" id="loadCard" aria-labelledby="h-load"></section>
+    <section class="card" aria-labelledby="h-pb">
+      <h2 id="h-pb">Streak and bests</h2>
+      <div class="kv" id="bests"></div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-recap" role="tabpanel" hidden>
+    <section class="card" aria-labelledby="h-recap">
+      <h2 id="h-recap">Weekly recap</h2>
+      <div id="recapOut"></div>
+      <div class="meta" id="recapMeta">Builds a ready-made prompt from your last 14 sessions. Paste it into Claude to get your recap.</div>
+      <button class="ghost" type="button" id="recapBtn">Copy recap prompt</button>
+    </section>
+  </div>
+  </main>
+</div>
+
+<nav class="tabs" aria-label="Sections"><div role="tablist">
+  <button role="tab" id="t-log" data-tab="log" aria-selected="true">Log</button>
+  <button role="tab" id="t-prog" data-tab="prog" aria-selected="false">Progress</button>
+  <button role="tab" id="t-recap" data-tab="recap" aria-selected="false">Recap</button>
+</div></nav>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s,r){return (r||document).querySelector(s)};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function use(n){try{return (window.claude&&window.claude.use)?Promise.resolve(window.claude.use(n)).catch(function(){return null}):Promise.resolve(null)}catch(e){return Promise.resolve(null)}}
+
+/* dates, local time, weeks start Monday */
+function pad(n){return String(n).padStart(2,'0')}
+function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function parse(s){var p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[2])}
+function addDays(d,n){var x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()+n);return x}
+function weekStart(d){var x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x}
+function today0(){var n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate())}
+function ov(b){return Math.floor(b/6)+'.'+(b%6)}
+function fmtDay(s){return parse(s).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}
+function sign(n){return n>0?'+'+n:n<0?'−'+Math.abs(n):'0'}
+
+/* data */
+function valid(l){return l&&typeof l.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(l.date)&&isFinite(l.balls)}
+var real=[];
+try{var c=JSON.parse(lsGet('spell-cache')||'[]');if(Array.isArray(c))real=c.filter(valid)}catch(e){}
+var store={mode:'local',col:null};
+var touched=false;
+
+function sampleLogs(){
+  var ws=weekStart(today0()),t=today0();
+  var plan=[
+    [5,1,'Nets',60,50,6,'Settled into a good length early'],
+    [5,4,'Nets',48,45,6,'Short run-up felt smoother'],
+    [4,1,'Nets',72,60,7,'Yorkers at the death, a few too full'],
+    [4,5,'Match',96,110,8,'16 overs in the league game, rhythm went late'],
+    [3,0,'Nets',66,55,6,'Worked on wrist position'],
+    [3,3,'Nets',54,50,6,'Light session before the weekend'],
+    [3,5,'Match',90,105,8,'Two wickets, good new-ball spell'],
+    [2,1,'Nets',78,65,7,'Swing was there, accuracy was not'],
+    [2,3,'Drills',36,40,5,'Target bowling, hit the cone 9 of 24'],
+    [2,5,'Match',102,120,9,'Long day, tired by the 15th over'],
+    [1,1,'Nets',72,60,7,'Pace up, line a bit wide'],
+    [1,2,'Nets',54,50,6,'Eased off after a hard Tuesday'],
+    [1,5,'Match',102,120,9,'17 overs, bowled from both ends'],
+    [0,0,'Nets',48,45,6,'Easy day back after the match']
+  ];
+  var out=[];
+  plan.forEach(function(p,i){
+    var d=addDays(ws,-7*p[0]+p[1]);
+    if(d>t)return;
+    out.push({id:'s'+i,date:iso(d),type:p[2],balls:p[3],mins:p[4],effort:p[5],note:p[6],ts:d.getTime()+i});
+  });
+  return out;
+}
+function current(){return real.length?{logs:real,sample:false}:{logs:sampleLogs(),sample:true}}
+function sorted(logs){return logs.slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:(b.ts||0)-(a.ts||0)})}
+
+function stats(logs){
+  var t0=today0(),ws=weekStart(t0),wk={};
+  logs.forEach(function(l){var k=iso(weekStart(parse(l.date)));var w=wk[k]||(wk[k]={balls:0,sessions:0});w.balls+=l.balls;w.sessions++});
+  var weeks=[];
+  for(var i=7;i>=0;i--){var s=addDays(ws,-7*i),k=iso(s),w=wk[k]||{balls:0,sessions:0};weeks.push({start:s,balls:w.balls,sessions:w.sessions,now:i===0})}
+  var cur=wk[iso(ws)]||{balls:0,sessions:0};
+  function sum(a,b){return logs.reduce(function(acc,l){var d=parse(l.date);return(d>=a&&d<=b)?acc+l.balls:acc},0)}
+  var acute=sum(addDays(t0,-6),t0);
+  var wins=[1,2,3,4].map(function(k){return sum(addDays(t0,-6-7*k),addDays(t0,-7*k))});
+  var filled=wins.filter(function(x){return x>0}).length;
+  var chronic=wins.reduce(function(a,b){return a+b},0)/4;
+  var load=null;
+  if(filled>=2&&chronic>0){var r=acute/chronic;load={ratio:r,pct:Math.round((r-1)*100),acute:acute,chronic:chronic,status:r>1.3?'spike':(r<0.8?'light':'steady')}}
+  function ok(k){return wk[k]&&wk[k].sessions>=2}
+  var streak=0,s=new Date(ws);
+  if(!ok(iso(s)))s=addDays(s,-7);
+  while(ok(iso(s))){streak++;s=addDays(s,-7)}
+  var keys=Object.keys(wk).sort(),best=0,run=0,prev=null;
+  keys.forEach(function(k){
+    if(!ok(k)){run=0;prev=null;return}
+    run=(prev&&iso(addDays(parse(prev),7))===k)?run+1:1;prev=k;if(run>best)best=run;
+  });
+  var longest=null,bigWeek=null,last=null;
+  logs.forEach(function(l){if(!longest||l.balls>longest.balls)longest=l;if(!last||l.date>last)last=l.date});
+  keys.forEach(function(k){if(!bigWeek||wk[k].balls>bigWeek.balls)bigWeek={key:k,balls:wk[k].balls}});
+  var since=last?Math.round((t0-parse(last))/864e5):null;
+  return {weeks:weeks,cur:cur,load:load,streak:streak,bestStreak:best,longest:longest,bigWeek:bigWeek,since:since,ws:ws};
+}
+
+/* rendering */
+function renderBoard(st){
+  var l=st.load,lv=l?(sign(l.pct)+'<small>%</small>'):'—';
+  var ls=l?'<span class="status '+l.status+'">'+(l.status==='spike'?'Spike':l.status==='light'?'Light':'Steady')+'</span>':'<span class="s">Needs 2 weeks of logs</span>';
+  $('#board').innerHTML=
+    '<div class="cell"><span class="k">This week</span><span class="v">'+ov(st.cur.balls)+'<small>ov</small></span><span class="s">since '+esc(st.ws.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}))+'</span></div>'+
+    '<div class="cell"><span class="k">Sessions</span><span class="v">'+st.cur.sessions+'</span><span class="s">this week</span></div>'+
+    '<div class="cell"><span class="k">Load</span><span class="v">'+lv+'</span>'+ls+'</div>';
+}
+function renderRecent(logs,sample){
+  var rows=sorted(logs).slice(0,8);
+  $('#recent').innerHTML=rows.map(function(l){
+    return '<li><div class="d">'+esc(fmtDay(l.date))+' <em>'+esc(l.type||'')+'</em></div>'+
+      '<div class="o">'+ov(l.balls)+'<small>ov</small></div>'+
+      '<div class="n">'+(l.note?esc(l.note):'<span aria-hidden="true">&nbsp;</span>')+'</div>'+
+      '<div class="e"><span>Effort '+esc(l.effort||'-')+(l.mins?' · '+esc(l.mins)+' min':'')+'</span>'+(sample?'':'<button class="rm" type="button" data-rm="'+esc(l.id)+'">Remove</button>')+'</div></li>';
+  }).join('');
+}
+function chartSVG(weeks){
+  var W=360,H=200,L=30,R=6,T=20,B=28;
+  var maxOv=Math.max.apply(null,[6].concat(weeks.map(function(w){return w.balls/6})));
+  var steps=[2,5,10,20,25,50,100],step=steps[steps.length-1];
+  for(var i=0;i<steps.length;i++){if(maxOv/steps[i]<=4){step=steps[i];break}}
+  var top=Math.ceil(maxOv/step)*step;
+  function y(v){return T+(H-T-B)*(1-v/top)}
+  var bw=(W-L-R)/weeks.length,g='',b='';
+  for(var v=0;v<=top;v+=step){g+='<line class="grid" x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v)+'" y2="'+y(v)+'"/><text x="'+(L-6)+'" y="'+(y(v)+3.5)+'" text-anchor="end">'+v+'</text>'}
+  weeks.forEach(function(w,i){
+    var o=w.balls/6,x=L+i*bw+bw*0.17,wd=bw*0.66,yy=y(o),h=Math.max(0,y(0)-yy),cx=L+i*bw+bw/2;
+    if(w.balls>0)b+='<rect class="bar'+(w.now?' now':'')+'" x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+wd.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="2"/><text class="val" x="'+cx.toFixed(1)+'" y="'+(yy-4).toFixed(1)+'" text-anchor="middle">'+ov(w.balls)+'</text>';
+    b+='<text x="'+cx.toFixed(1)+'" y="'+(H-10)+'" text-anchor="middle">'+esc(w.start.toLocaleDateString('en-GB',{day:'numeric',month:'short'}))+'</text>';
+  });
+  var label='Overs bowled per week for the last 8 weeks. '+weeks.map(function(w){return w.start.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+': '+ov(w.balls)}).join(', ');
+  return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(label)+'">'+g+b+'</svg>';
+}
+function renderProgress(st){
+  $('#chart').innerHTML=chartSVG(st.weeks);
+  var l=st.load,h='<h2 id="h-load">Load check</h2>';
+  if(l){
+    var name=l.status==='spike'?'Spike':l.status==='light'?'Light':'Steady';
+    var msg=l.status==='spike'?'You bowled well above your usual. Plan a lighter spell or a rest day before the next hard one.':l.status==='light'?'Below your usual. Fine for a rest week, but build back up before a match block.':'In line with your usual workload.';
+    h+='<div><span class="big">'+sign(l.pct)+'%</span> <span class="pill '+l.status+'">'+name+'</span></div>'+
+       '<p>Last 7 days: <b>'+ov(l.acute)+'</b> overs. Your 4-week average: <b>'+ov(Math.round(l.chronic))+'</b>. '+msg+'</p>'+
+       '<small>A simple guide to spot sudden jumps in bowling load. It is not medical advice.</small>';
+  }else{
+    h+='<p>Log at least two weeks of sessions and this card will compare your last 7 days to your usual week.</p>';
+  }
+  $('#loadCard').innerHTML=h;
+  var since=st.since===null?'No sessions yet':st.since===0?'Today':st.since===1?'Yesterday':st.since+' days ago';
+  var lg=st.longest,bw=st.bigWeek;
+  $('#bests').innerHTML=
+    '<div class="k">Weekly streak<br><span class="meta">Weeks with 2 or more sessions</span></div><div class="v">'+st.streak+(st.streak===1?' week':' weeks')+'<small>Best '+st.bestStreak+'</small></div>'+
+    '<div class="k">Last session</div><div class="v">'+esc(since)+'</div>'+
+    '<div class="k">Biggest spell in a session</div><div class="v">'+(lg?ov(lg.balls)+' ov<small>'+esc(fmtDay(lg.date))+'</small>':'—')+'</div>'+
+    '<div class="k">Biggest week</div><div class="v">'+(bw?ov(bw.balls)+' ov<small>from '+esc(fmtDay(bw.key))+'</small>':'—')+'</div>';
+}
+function renderAll(){
+  var cur=current(),st=stats(cur.logs);
+  $('#sampleNote').hidden=!cur.sample;
+  renderBoard(st);renderRecent(cur.logs,cur.sample);renderProgress(st);
+}
+
+/* tabs */
+function setTab(t){
+  ['log','prog','recap'].forEach(function(k){
+    $('#p-'+k).hidden=(k!==t);
+    $('#t-'+k).setAttribute('aria-selected',k===t?'true':'false');
+  });
+  lsSet('spell-tab',t);
+  window.scrollTo(0,0);
+}
+$$('nav.tabs button').forEach(function(b){b.addEventListener('click',function(){setTab(b.dataset.tab)})});
+
+/* form */
+var eff=$('#effort');
+for(var i=1;i<=10;i++){eff.insertAdjacentHTML('beforeend','<label><input type="radio" name="effort" value="'+i+'"'+(i===6?' checked':'')+'><span>'+i+'</span></label>')}
+$('#date').value=iso(today0());
+$('#date').max=iso(today0());
+$('#today').textContent=today0().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+function ballsVal(){var v=parseInt($('#balls').value,10);return isFinite(v)&&v>=0?v:0}
+function updHint(){var b=ballsVal();$('#ovHint').innerHTML='That is <b>'+ov(b)+'</b> overs ('+Math.floor(b/6)+' full'+(b%6?', '+(b%6)+' ball'+(b%6>1?'s':''):'')+')'}
+function applyDefaults(){
+  var s=sorted(real)[0];
+  if(!s)return;
+  var r=$('input[name="type"][value="'+s.type+'"]');if(r)r.checked=true;
+  $('#balls').value=s.balls;
+  if(s.mins!=null)$('#mins').value=s.mins;
+  var e=$('input[name="effort"][value="'+s.effort+'"]');if(e)e.checked=true;
+  updHint();
+}
+$('#form').addEventListener('input',function(){touched=true});
+$('#balls').addEventListener('input',updHint);
+$$('.stepper button').forEach(function(b){b.addEventListener('click',function(){
+  touched=true;
+  $('#balls').value=Math.min(600,Math.max(0,ballsVal()+parseInt(b.dataset.step,10)));
+  updHint();
+})});
+var toastT;
+function toast(msg){var t=$('#toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('on')},2600)}
+
+function addLog(l){
+  if(store.mode==='db'){return store.col.doc().set(l)}
+  l.id='l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  real=[l].concat(real);lsSet('spell-cache',JSON.stringify(real));renderAll();
+  return Promise.resolve();
+}
+function removeLog(id){
+  if(store.mode==='db'){return store.col.doc(id).delete()}
+  real=real.filter(function(l){return l.id!==id});lsSet('spell-cache',JSON.stringify(real));renderAll();
+  return Promise.resolve();
+}
+$('#form').addEventListener('submit',function(ev){
+  ev.preventDefault();
+  var err=$('#err');err.textContent='';
+  var balls=ballsVal(),date=$('#date').value;
+  if(balls<1){err.textContent='Enter the balls you bowled, 1 or more.';return}
+  if(!date||date>iso(today0())){err.textContent='Pick today or an earlier day.';return}
+  var mins=parseInt($('#mins').value,10);
+  var l={date:date,type:($('input[name="type"]:checked')||{}).value||'Nets',balls:balls,mins:isFinite(mins)?mins:0,effort:parseInt(($('input[name="effort"]:checked')||{}).value||'6',10),note:$('#note').value.trim().slice(0,120),ts:Date.now()};
+  var btn=$('.save');btn.disabled=true;
+  addLog(l).then(function(){
+    $('#note').value='';touched=true;
+    toast('Logged '+ov(balls)+' overs.');
+  }).catch(function(){
+    err.textContent='Could not save that. Check your connection and try again.';
+  }).then(function(){btn.disabled=false});
+});
+$('#recent').addEventListener('click',function(ev){
+  var b=ev.target.closest('[data-rm]');if(!b)return;
+  if(!b.hasAttribute('data-armed')){
+    b.setAttribute('data-armed','1');b.textContent='Tap again to remove';
+    setTimeout(function(){if(b.isConnected){b.removeAttribute('data-armed');b.textContent='Remove'}},3000);
+    return;
+  }
+  removeLog(b.dataset.rm).then(function(){toast('Removed.')}).catch(function(){toast('Could not remove that.')});
+});
+
+/* weekly recap: build a ready-made prompt, paste it into Claude */
+function recapIdle(){
+  $('#recapOut').innerHTML=
+    '<div class="recap-part dim"><span class="lbl">What improved</span><p>Volume, consistency and effort compared with earlier weeks.</p></div>'+
+    '<div class="recap-part dim"><span class="lbl">What is lagging</span><p>Spikes in load, missed weeks or sessions that stacked up hard.</p></div>'+
+    '<div class="recap-part dim"><span class="lbl">One change for next week</span><p>A single thing to do differently.</p></div>';
+}
+function buildPrompt(cur){
+  var st=stats(cur.logs);
+  var weeks=st.weeks.slice(-6).map(function(w){return w.start.toISOString().slice(0,10)+' | '+ov(w.balls)+' overs | '+w.sessions+' sessions'+(w.now?' (week in progress)':'')}).join('\n');
+  var recent=sorted(cur.logs).slice(0,14).map(function(l){return l.date+' | '+l.type+' | '+ov(l.balls)+' overs | '+(l.mins||'?')+' min | effort '+l.effort+'/10 | '+(l.note||'no note')}).join('\n');
+  var load=st.load?('Last 7 days '+ov(st.load.acute)+' overs vs 4-week average '+ov(Math.round(st.load.chronic))+' ('+sign(st.load.pct)+'%).'):'Not enough history for a load comparison.';
+  return 'You are a cricket bowling coach reviewing my training log. Workload is counted in balls bowled and written as overs.balls, so 4.2 means 4 overs and 2 balls. Today is '+iso(today0())+'.\n\n'+
+  'Write my weekly recap with three short sections titled "What improved", "What is lagging" and "One change for next week". Each section is 1 or 2 plain sentences addressed to me as "you", and uses numbers from the data. "What improved" covers what went up or got better (volume, consistency, effort, anything in the notes). "What is lagging" covers what slipped or looks risky (a load spike, hard days stacked without rest, a missed week). "One change for next week" is exactly one concrete change. Do not diagnose injuries or give medical advice. If a note mentions pain, tell me to check with a physio. If the data is too thin for a section, say so there.\n\n'+
+  'Weekly totals (week starting | volume | sessions):\n'+weeks+'\n\nLoad: '+load+'\n\nLast sessions, newest first (date | type | volume | duration | effort | note):\n'+recent;
+}
+$('#recapBtn').addEventListener('click',function(){
+  var cur=current(),p=buildPrompt(cur),meta=$('#recapMeta');
+  $('#recapOut').innerHTML='<div class="recap-part"><span class="lbl">Your prompt</span><textarea class="prompt" id="prompt" readonly rows="8"></textarea></div>';
+  var ta=$('#prompt');ta.value=p;
+  function done(ok){
+    meta.textContent=(cur.sample?'Built from the sample sessions. ':'')+(ok?'Copied. Paste it into a chat with Claude to get your recap.':'Select the text above, copy it, and paste it into a chat with Claude.');
+    if(!ok){ta.focus();ta.select()}
+  }
+  try{navigator.clipboard.writeText(p).then(function(){done(true)},function(){done(false)})}catch(e){done(false)}
+});
+
+/* start */
+recapIdle();
+applyDefaults();updHint();renderAll();
+var tab=lsGet('spell-tab');if(tab==='prog'||tab==='recap')setTab(tab);
+})();
+</script>
+<script>
+if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){})})}
+</script>
+</body>
+</html>
